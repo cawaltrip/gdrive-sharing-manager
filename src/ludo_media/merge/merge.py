@@ -8,6 +8,7 @@ from googleapiclient.errors import HttpError
 import traceback
 import sys
 import logging
+from pathlib import Path
 
 
 class Merge(ArgParser):
@@ -39,6 +40,15 @@ class Merge(ArgParser):
                 Merge.logger.debug(f"Refreshing expired credentials")
                 creds.refresh(Request())
             else:
+                if not Merge._creds.exists():
+                    try:
+                        Merge._creds = Path(self.creds)
+                    except:
+                        Merge.logger.critical("Could not find credential!")
+                        sys.exit(1)
+                    if not Merge._creds.exists():
+                        Merge.logger.critical("Could not find credential!")
+                        sys.exit(1)
                 Merge.logger.debug(f"Retrieving credentials from {Merge._creds.resolve()}")
                 flow = InstalledAppFlow.from_client_secrets_file(
                     Merge._creds, Merge._SCOPES)

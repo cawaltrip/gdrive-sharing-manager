@@ -8,6 +8,7 @@ from googleapiclient.errors import HttpError
 import traceback
 import sys
 import logging
+from pathlib import Path
 
 class Create(ArgParser):
     """Class that creates a new empty folder structure to share."""
@@ -37,6 +38,15 @@ class Create(ArgParser):
                 Create.logger.debug(f"Refreshing expired credentials")
                 creds.refresh(Request())
             else:
+                if not Create._creds.exists():
+                    try:
+                        Create._creds = Path(self.creds)
+                    except:
+                        Create.logger.critical("Could not find credential!")
+                        sys.exit(1)
+                    if not Create._creds.exists():
+                        Create.logger.critical("Could not find credential!")
+                        sys.exit(1)
                 Create.logger.debug(f"Retrieving credentials from {Create._creds.resolve()}")
                 flow = InstalledAppFlow.from_client_secrets_file(
                     Create._creds, Create._SCOPES)

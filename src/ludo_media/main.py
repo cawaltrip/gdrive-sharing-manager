@@ -17,6 +17,7 @@ def parse_args():
     common.add_argument('-n', '--folder-name',
                         dest="new_folder_name", metavar="FOLDER_NAME",
                         help="Folder name to create/merge from", required=True)
+    common.add_argument('-c', '--credential', dest="creds", help="Path to credential.json")
 
     subparsers = root.add_subparsers()
     Create.add_arguments(subparsers, [common])
