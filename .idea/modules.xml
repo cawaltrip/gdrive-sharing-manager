@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/ludo-media-management.iml" filepath="$PROJECT_DIR$/.idea/ludo-media-management.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ludo-media.iml" filepath="$PROJECT_DIR$/.idea/ludo-media.iml" />
     </modules>
   </component>
 </project>
