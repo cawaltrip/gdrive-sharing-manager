@@ -20,7 +20,6 @@ class Merge(ArgParser):
     def __init__(self):
         super(Merge, Merge.__init__())
 
-
     @staticmethod
     def add_arguments(subparsers, parents: List = []) -> None:
         Merge.parser = subparsers.add_parser(
@@ -30,10 +29,15 @@ class Merge(ArgParser):
         Merge.parser.set_defaults(func=Merge.merge)
 
     def merge(self):
+        # Need to set token/credential
+        test_token_path = Path(self.creds).parent.joinpath("token.json")
+        if test_token_path.exists():
+            Merge._token = test_token_path
+
         creds = None
         if Merge._token.exists():
             Merge.logger.debug(f"Retrieving credentials from {Merge._token.resolve()}")
-            creds = Credentials.from_authorized_user_file(Merge._token, Merge._SCOPES)
+            creds = Credentials.from_authorized_user_file(str(Merge._token), Merge._SCOPES)
         if not creds or not creds.valid:
             Merge.logger.debug(f"Creds are invalid.")
             if creds and creds.expired and creds.refresh_token:
@@ -42,7 +46,7 @@ class Merge(ArgParser):
             else:
                 if not Merge._creds.exists():
                     try:
-                        Merge._creds = Path(self.creds)
+                        Merge._creds = Path(self.creds).expanduser()
                     except:
                         Merge.logger.critical("Could not find credential!")
                         sys.exit(1)
@@ -51,7 +55,7 @@ class Merge(ArgParser):
                         sys.exit(1)
                 Merge.logger.debug(f"Retrieving credentials from {Merge._creds.resolve()}")
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    Merge._creds, Merge._SCOPES)
+                    str(Merge._creds), Merge._SCOPES)
                 creds = flow.run_local_server(port=0)
 
             # Save the creds for the next run.

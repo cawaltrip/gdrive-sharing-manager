@@ -16,8 +16,8 @@ class ArgParser(ABC):
     _MEDIA_BASE_FOLDER_ID = '1aBFQtRowXS_Arjwmt00VdVp8Z6IGm34d'
     _TEST_BASE_FOLDER_ID = '1rCsObEDG9BIEMC228cLGi-bHyY7BDEWj'
 
-    _token = Path(__file__).parent.resolve().joinpath("token.json")
-    _creds = Path(__file__).parent.resolve().joinpath("credentials.json")
+    _token = None  # Path(__file__).parent.resolve().joinpath("token.json")
+    _creds = None  # Path(__file__).parent.resolve().joinpath("credentials.json")
 
     _folder_mimetype = "application/vnd.google-apps.folder"
 

@@ -28,10 +28,15 @@ class Create(ArgParser):
         Create.parser.set_defaults(func=Create.create)
 
     def create(self):
+        # Need to set token/credential
+        test_token_path = Path(self.creds).parent.joinpath("token.json")
+        if test_token_path.exists():
+            Create._token = test_token_path
+
         creds = None
         if Create._token.exists():
             Create.logger.debug(f"Retrieving credentials from {Create._token.resolve()}")
-            creds = Credentials.from_authorized_user_file(Create._token, Create._SCOPES)
+            creds = Credentials.from_authorized_user_file(str(Create._token), Create._SCOPES)
         if not creds or not creds.valid:
             Create.logger.debug(f"Creds are invalid.")
             if creds and creds.expired and creds.refresh_token:
@@ -40,7 +45,7 @@ class Create(ArgParser):
             else:
                 if not Create._creds.exists():
                     try:
-                        Create._creds = Path(self.creds)
+                        Create._creds = Path(self.creds).expanduser()
                     except:
                         Create.logger.critical("Could not find credential!")
                         sys.exit(1)
@@ -49,7 +54,7 @@ class Create(ArgParser):
                         sys.exit(1)
                 Create.logger.debug(f"Retrieving credentials from {Create._creds.resolve()}")
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    Create._creds, Create._SCOPES)
+                    str(Create._creds), Create._SCOPES)
                 creds = flow.run_local_server(port=0)
 
             # Save the creds for the next run.

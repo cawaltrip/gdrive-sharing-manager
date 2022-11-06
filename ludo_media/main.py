@@ -17,7 +17,9 @@ def parse_args():
     common.add_argument('-n', '--folder-name',
                         dest="new_folder_name", metavar="FOLDER_NAME",
                         help="Folder name to create/merge from", required=True)
-    common.add_argument('-c', '--credential', dest="creds", help="Path to credential.json")
+    common.add_argument('-c', '--credentials', dest="creds", required=True,
+                        default="~/.gcloud/credentials.json",
+                        help="Path to credentials.json")
 
     subparsers = root.add_subparsers()
     Create.add_arguments(subparsers, [common])
@@ -56,9 +58,11 @@ def parse_args():
         log_file_handler.setLevel(logging.DEBUG)
         logger.addHandler(log_file_handler)
 
+    args = root.parse_args()
+    if args.creds:
+        args.creds = Path(args.creds).expanduser()
 
-
-    return root.parse_args(), root
+    return args, root
 
 
 def main():

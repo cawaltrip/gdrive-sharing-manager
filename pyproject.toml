@@ -1,3 +1,22 @@
+[tool.poetry]
+name = "ludo-media"
+version = "0.1.0"
+description = "A management tool to automatically create a personalized upload folder for Ludo concert media. "
+authors = ["Chris Waltrip <chris@walt.rip>"]
+readme = "README.md"
+license = "MIT-0"
+packages = [{include = "ludo_media"}]
+repository = "https://github.com/cawaltrip/ludo-media"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+google-api-python-client = "^2.65.0"
+google-auth-oauthlib = "^0.7.1"
+
+
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[scripts]
+ludo = "ludo_media.main:main"
