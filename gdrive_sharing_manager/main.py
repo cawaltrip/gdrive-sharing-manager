@@ -33,7 +33,7 @@ def parse_args():
     args = root.parse_args()
 
     # Configure logging
-    logger = logging.getLogger('ludo')
+    logger = logging.getLogger('gdrive-share')
     logger.setLevel(logging.DEBUG)
 
     # Console output:

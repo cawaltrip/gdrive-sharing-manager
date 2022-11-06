@@ -22,7 +22,7 @@ class ArgParser(ABC):
     _folder_mimetype = "application/vnd.google-apps.folder"
 
     _service = None
-    logger = logging.getLogger("ludo.common")
+    logger = logging.getLogger("gdrive-share.common")
 
     @staticmethod
     def _get_folder_by_id(folder_id: str):

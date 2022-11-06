@@ -14,7 +14,7 @@ class Create(ArgParser):
     """Class that creates a new empty folder structure to share."""
 
     parser = None
-    logger = logging.getLogger("ludo.create")
+    logger = logging.getLogger("gdrive-share.create")
 
     def __init__(self):
         super(Create, Create.__init__())

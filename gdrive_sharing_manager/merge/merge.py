@@ -15,7 +15,7 @@ class Merge(ArgParser):
     """Class that copies all the files back into the main folder structure"""
 
     parser = None
-    logger = logging.getLogger("ludo.merge")
+    logger = logging.getLogger("gdrive-share.merge")
 
     def __init__(self):
         super(Merge, Merge.__init__())
