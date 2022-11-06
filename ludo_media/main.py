@@ -17,7 +17,7 @@ def parse_args():
     common.add_argument('-n', '--folder-name',
                         dest="new_folder_name", metavar="FOLDER_NAME",
                         help="Folder name to create/merge from", required=True)
-    common.add_argument('-c', '--credentials', dest="creds", required=True,
+    common.add_argument('-c', '--credentials', dest="creds",
                         default="~/.gcloud/credentials.json",
                         help="Path to credentials.json")
 
@@ -66,6 +66,7 @@ def parse_args():
 
 
 def main():
+    # Entry point for entire program.
     args, parser = parse_args()
 
     if "func" not in args:

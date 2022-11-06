@@ -109,7 +109,7 @@ class ArgParser(ABC):
             'mimeType': ArgParser._folder_mimetype,
             'parents': [{"id": parent_id}]}
         new_folder = ArgParser._service.files().insert(body=body).execute()
-        print(f"New folder created.  ID: {new_folder['id']}.  Parents: {new_folder['parents']}")
+        ArgParser.logger.debug("New folder created.  ID: {new_folder['id']}.  Parents: {new_folder['parents']}")
         return new_folder['id']
 
     @staticmethod

@@ -18,5 +18,5 @@ google-auth-oauthlib = "^0.7.1"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[scripts]
-ludo = "ludo_media.main:main"
+[tool.poetry.scripts]
+ludo-media = "ludo_media.main:main"
