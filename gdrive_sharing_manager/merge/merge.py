@@ -1,4 +1,4 @@
-from ludo_media.argument_parser import ArgParser
+from gdrive_sharing_manager.argument_parser import ArgParser
 from typing import List
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials

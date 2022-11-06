@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "ludo-media"
+name = "gdrive-sharing-manager"
 version = "0.1.0"
-description = "A management tool to automatically create a personalized upload folder for Ludo concert media. "
+description = "A management tool to let others upload files without giving them editor access to the folder."
 authors = ["Chris Waltrip <chris@walt.rip>"]
 readme = "README.md"
 license = "MIT-0"
-packages = [{include = "ludo_media"}]
-repository = "https://github.com/cawaltrip/ludo-media"
+packages = [{include = "gdrive_sharing_manager"}]
+repository = "https://github.com/cawaltrip/gdrive-sharing-manager"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -19,4 +19,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-ludo-media = "ludo_media.main:main"
+gdrive-share = "gdrive_sharing_manager.main:main"

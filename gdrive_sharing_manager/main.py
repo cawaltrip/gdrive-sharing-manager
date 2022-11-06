@@ -2,8 +2,8 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from ludo_media.create.create import Create
-from ludo_media.merge.merge import Merge
+from gdrive_sharing_manager.create.create import Create
+from gdrive_sharing_manager.merge.merge import Merge
 
 
 def parse_args():
