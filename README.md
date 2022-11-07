@@ -30,25 +30,64 @@ pip install dist/gdrive-sharing-manager-*-py3-none-any.whl
 ## Usage
 Create and share a folder with `alice@example.com`
 ```bash
-grdive-share create --source "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
+grdive-share create --source-root "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
 ```
 
 Merge additions made by `alice@example.com` back into the main folder.
 ```bash
-gdrive-share merge --source "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
+gdrive-share merge --source-root "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
 ```
 
 If using poetry, and not installing from pip, prepend all commands with `poetry run`.  E.g.,
 ```bash
-poetry run gdrive-share create --source "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
+poetry run gdrive-share create --source-root "FOOBAR" --dest-root "BAZLOW" --user "alice@example.com"
 ```
 
+Specify a configuration file for some of the options
+```bash
+gdrive-share -c ~/.config/gdrive-sharing-manager/config create --user "alice@example.com"
+```
+
+## Configuration File
+If a configuration file is used, it must be the first command line argument specified.  This program accepts uses the extended interpolation found in Python's `configparser` to do it's work, so variables can be used.
+No `DEFAULTS` section is used.  Here is a template that can be used:
+
+```ini
+[Common]
+# Contains variables to be used elsewhere
+main_folder_id = 
+main_folder_name =
+uploads_folder_id =
+uploads_folder_name =
+
+[Primary]
+creds = ~/.gcloud/credentials.json
+
+[Create]
+# source_root_id = ${Common:main_folder_id}
+source_root = ${Common:main_folder_name}
+# dest_root_id = ${Common:uploads_folder_id}
+dest_root = ${Common:uploads_folder_name}
+
+[Merge]
+# Notice that the source and destinations are swapped for the
+# Merge step (i.e., source is the uploads folder and dest is
+# the main folder)!
+source_root_id = ${Common:uploads_folder_id}
+# source_root = ${Common:uploads_folder_name}
+dest_root_id = ${Common:main_folder_id}
+# dest_root = ${Common:main_folder_name}
+```
+
+
+
 ## TODO
-- [ ] Remove references to previous program.
-  - [ ] Including hardcoded folder values.
-- [ ] Add configuration file parsing.
+- [x] Remove references to previous program.
+  - [x] Including hardcoded folder values.
+- [x] Add configuration file parsing.
 - [ ] Tests?  What are those??
-- [ ] Automatically share folder with user.
+- [x] Automatically share folder with user.
 - [ ] Determine if files with same names are identical files and don't copy over if so.
-- [ ] Update to Google Drive API v3.
+- [x] Update to Google Drive API v3.
+- [ ] Make logging consistent
 
