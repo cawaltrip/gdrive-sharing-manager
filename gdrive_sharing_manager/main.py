@@ -4,33 +4,52 @@ import sys
 from pathlib import Path
 from gdrive_sharing_manager.create.create import Create
 from gdrive_sharing_manager.merge.merge import Merge
+from configparser import ConfigParser, ExtendedInterpolation
 
 
 def parse_args():
     root = argparse.ArgumentParser()
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument('-v', '--verbose', action="count", default=0,
+
+    # Read in a configuration file and if so, convert it to a dictionary
+    # for future use.
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument('-c','--conf', help="Path to optional configuration file.")
+    conf_args, remaining_argv = config_parser.parse_known_args()
+    config = None
+    if conf_args.conf is not None:
+        conf_file = Path(conf_args.conf).expanduser()
+        if conf_file.exists():
+            conf = ConfigParser(interpolation=ExtendedInterpolation())
+            try:
+                conf.read(conf_file)
+            except:
+                pass
+            else:
+                # There were options in the config file, so create a dictionary of them.
+                config = {s:dict(conf.items(s)) for s in conf.sections()}
+    primary = argparse.ArgumentParser(add_help=False)
+    primary.add_argument('-v', '--verbose', action="count", default=0,
                         help="Increase the verbosity level.  Can be used multiple times.")
-    common.add_argument('-q', '--quiet', action="count", default=0,
+    primary.add_argument('-q', '--quiet', action="count", default=0,
                         help="Decrease the verbosity level.  Can be used multiple times.")
-    common.add_argument('-l', '--log', help="Path to log file if desired.")
-    common.add_argument('-n', '--folder-name',
-                        dest="new_folder_name", metavar="FOLDER_NAME",
-                        help="Folder name to create/merge from", required=True)
-    common.add_argument('-c', '--credentials', dest="creds",
-                        default="~/.gcloud/credentials.json",
-                        help="Path to credentials.json")
+    primary.add_argument('-l', '--log', help="Path to log file if desired.")
+    primary.add_argument('-C', '--credentials', dest="creds",
+                        help="Path to credentials.json"),
+    primary.add_argument('-u', '--user', help="User to share folder/retrieve files from.")
+
+    if config is not None and "Primary" in config.keys():
+        primary.set_defaults(**config['Primary'])
 
     subparsers = root.add_subparsers()
-    Create.add_arguments(subparsers, [common])
-    Merge.add_arguments(subparsers, [common])
+    Create.add_arguments(subparsers, [primary], config)
+    Merge.add_arguments(subparsers, [primary], config)
 
     # Check if anything at all has been passed in and display usage if not
     if len(sys.argv) <= 1:
         root.print_help(sys.stderr)
         sys.exit(1)
 
-    args = root.parse_args()
+    args = root.parse_args(remaining_argv)
 
     # Configure logging
     logger = logging.getLogger('gdrive-share')
@@ -58,9 +77,11 @@ def parse_args():
         log_file_handler.setLevel(logging.DEBUG)
         logger.addHandler(log_file_handler)
 
-    args = root.parse_args()
     if args.creds:
         args.creds = Path(args.creds).expanduser()
+    else:
+        logger.critical("Must specify credentials file.")
+        sys.exit(1)
 
     return args, root
 

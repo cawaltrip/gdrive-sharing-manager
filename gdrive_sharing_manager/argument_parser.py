@@ -4,6 +4,7 @@ from typing import List, Dict
 from pathlib import Path
 from googleapiclient.errors import HttpError
 import logging
+import json
 
 
 class ArgParser(ABC):
@@ -11,13 +12,8 @@ class ArgParser(ABC):
     # When changing SCOPES, the token needs to be recreated.
     _SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    # I cheated and just grabbed these, so we don't have to search everytime.
-    _UPLOADS_BASE_FOLDER_ID = '12xla_WJDjg0HTLBEMYPKJmIyCvsPA20e'
-    _MEDIA_BASE_FOLDER_ID = '1aBFQtRowXS_Arjwmt00VdVp8Z6IGm34d'
-    _TEST_BASE_FOLDER_ID = '1rCsObEDG9BIEMC228cLGi-bHyY7BDEWj'
-
-    _token = None  # Path(__file__).parent.resolve().joinpath("token.json")
-    _creds = None  # Path(__file__).parent.resolve().joinpath("credentials.json")
+    _token = None
+    _creds = None
 
     _folder_mimetype = "application/vnd.google-apps.folder"
 
@@ -43,7 +39,7 @@ class ArgParser(ABC):
                 if page_token:
                     param['pageToken'] = page_token
                 files = ArgParser._service.files().list(q=query, spaces='drive', **param).execute()
-                result.extend(files['items'])
+                result.extend(files['files'])
                 page_token = files.get('nextPageToken')
                 if not page_token:
                     break
@@ -70,7 +66,7 @@ class ArgParser(ABC):
     @staticmethod
     def _get_parent_name(folder_id: str) -> str:
         parent = ArgParser._service.files().get(fileId=folder_id).execute()
-        return parent['title']
+        return parent['name']
 
     @staticmethod
     def _get_files_folders_dict(queue: List =[], include_files: bool = True) -> Dict:
@@ -84,7 +80,7 @@ class ArgParser(ABC):
             test_files = ArgParser._get_files_folders_by_folder_id(current_folder['id'])
 
             parent_name = ArgParser._get_parent_name(current_folder['id'])
-            folder_list['folder_name'] = current_folder['title']
+            folder_list['folder_name'] = current_folder['name']
             folder_list['folder_id'] = current_folder['id']
             folder_list['parent_name'] = parent_name
             if include_files:
@@ -104,13 +100,13 @@ class ArgParser(ABC):
     @staticmethod
     def _create_folder(parent_id: str, folder_name: str) -> str:
         # Create a folder on Drive, returns the newly created folders ID
-        body = {
-            'title': folder_name,
+        file_metadata = {
+            'name': folder_name,
             'mimeType': ArgParser._folder_mimetype,
-            'parents': [{"id": parent_id}]}
-        new_folder = ArgParser._service.files().insert(body=body).execute()
-        ArgParser.logger.debug("New folder created.  ID: {new_folder['id']}.  Parents: {new_folder['parents']}")
-        return new_folder['id']
+            'parents': [parent_id]}
+        new_folder = ArgParser._service.files().create(body=file_metadata, fields='id, parents').execute()
+        ArgParser.logger.debug(f"New folder created.  ID: {new_folder.get('id')}.  Parents: {new_folder.get('parents')}")
+        return new_folder.get('id')
 
     @staticmethod
     def _duplicate_folder_structure(parent_id: str, folders: List) -> None:
@@ -125,7 +121,7 @@ class ArgParser(ABC):
     def _get_folder_by_name_under_parent(parent_id: str, folder_name: str):
         match = None
         folders_to_search = ArgParser._get_children_folders_by_folder_id(folder_id=parent_id)
-        matches = [f for f in folders_to_search if f['title'] == folder_name]
+        matches = [f for f in folders_to_search if f['name'] == folder_name]
         if len(matches) > 0:
             # For now we'll always just take the first one if there are multiple name matches
             match = matches[0]
@@ -134,16 +130,16 @@ class ArgParser(ABC):
     @staticmethod
     def _copy_file(file, dest_id: str):
         new_file_body = {
-            'title': file['title'],
-            'parents': [{"id": dest_id}]
+            'name': file['name'],
+            'parents': [dest_id]
         }
-        ArgParser.logger.info(f"Copying {file['title']}")
+        ArgParser.logger.info(f"Copying {file['name']}")
         try:
             new_file = ArgParser._service.files().copy(fileId=file['id'], body=new_file_body).execute()
         except HttpError as e:
-            ArgParser.logger.warning(f"Failed to copy {file['title']}.  Error: {e}")
+            ArgParser.logger.warning(f"Failed to copy {file['name']}.  Error: {e}")
         else:
-            ArgParser.logger.debug(f"Copied file: {file['title']} (id: {new_file['id']}, parents: {new_file['parents']})")
+            ArgParser.logger.debug(f"Copied file: {file['name']} (id: {new_file.get('id')}, parents: {new_file.get('parents')})")
         return new_file
 
     @staticmethod
@@ -187,17 +183,18 @@ class ArgParser(ABC):
                             ArgParser.logger.debug("found a matching folder")
                             found = True
                             try:
-                                ArgParser.logger.debug("Getting ready to enter _copy_files_from_one_folder_to_another()")
+                                ArgParser.logger.debug("Getting ready to enter "
+                                                       "_copy_files_from_one_folder_to_another()")
                                 if "child_files" in f:
                                     _copy_files_from_one_folder_to_another(f['child_files'], ff['folder_id'])
                                 else:
                                     ArgParser.logger.critical("How did we hit this part??")
                             except HttpError as e:
-                                print(f"Could not copy files from {f['folder_name']}")
-                                print(f"HttpError: {e}")
+                                ArgParser.logger.error(f"Could not copy files from {f['folder_name']}")
+                                ArgParser.logger.error(f"HttpError: {e}")
                             ArgParser.logger.debug("setting next_orig_root")
                             next_orig_root = ff
-                            break # This one is break because we're in nested for loop currently.
+                            break  # This one is break because we're in nested for loop currently.
                     if not found:
                         # Then we have a new folder.  Create the new folder in orig with the name from new_
                         # and then copy the items from new_ to orig.  Make sure there's actually files in new_
@@ -205,31 +202,30 @@ class ArgParser(ABC):
                             ArgParser.logger.debug("creating new folder in orig (from new_)")
                             new_folder_id = ArgParser._create_folder(orig['folder_id'], f['folder_name'])
                         except HttpError as e:
-                            print(f"Could not create new folder: {f['folder_name']}")
-                            print(f"HttpError: {e}")
+                            ArgParser.logger.error(f"Could not create new folder: {f['folder_name']}")
+                            ArgParser.logger.error(f"HttpError: {e}")
                             continue  # not break?
                         try:
-                            ArgParser.logger.debug("Now getting ready to enter _copy_files_from_one_folder_to_another()")
+                            ArgParser.logger.debug("Getting ready to enter "
+                                                   "_copy_files_from_one_folder_to_another()")
                             _copy_files_from_one_folder_to_another(f['child_files'], new_folder_id)
                         except HttpError as e:
-                            print(f"Could not copy files from {f['folder_name']}")
-                            print(f"HttpError: {e}")
+                            ArgParser.logger.error(f"Could not copy files from {f['folder_name']}")
+                            ArgParser.logger.error(f"HttpError: {e}")
                 else:
                     # Then we also have a new folder.  Create the new folder in orig with the name from new_
                     # and then copy the items from new_ to orig.  Make sure there's actually files in new_
                     try:
-                        ArgParser.logger.debug("Again creating new folder in orig (from new_)")
                         new_folder_id = ArgParser._create_folder(orig['folder_id'], f['folder_name'])
                     except HttpError as e:
-                        print(f"Could not create new folder: {f['folder_name']}")
-                        print(f"HttpError: {e}")
+                        ArgParser.logger.error(f"Could not create new folder: {f['folder_name']}")
+                        ArgParser.logger.error(f"HttpError: {e}")
                         continue  # not break?
                     try:
-                        ArgParser.logger.debug("Again now getting ready to enter _copy_files_from_one_folder_to_another()")
                         _copy_files_from_one_folder_to_another(f['child_files'], new_folder_id)
                     except HttpError as e:
-                        print(f"Could not copy files from {f['folder_name']}")
-                        print(f"HttpError: {e}")
+                        ArgParser.logger.error(f"Could not copy files from {f['folder_name']}")
+                        ArgParser.logger.error(f"HttpError: {e}")
                 if "child_folders" in f.keys():
                     ArgParser.logger.info("Recursing on child_folders of f.keys()")
                     # Recurse
@@ -242,23 +238,22 @@ class ArgParser(ABC):
                         }
                     ArgParser._copy_all_files(next_orig_root, f)
 
-
-
-
     @staticmethod
-    def _add_new_files():
-        pass
+    def _share_folder_with_user(file_id: str, user: str, email_message: str = None):
+        user_permission = {
+            'type': 'user',
+            'role': 'writer',
+            'emailAddress': f"{user}"
+        }
+        response = ArgParser._service.permissions().create(fileId=file_id,
+                                                           body=user_permission,
+                                                           fields='id').execute()
+        return response.get('id')
 
-    # NOTE: Basic algorithm will be to take the `files_and_folders` list,
-    #       replace the root of the list's id with the original ludo folder's id.
-    #       Then recurse through the child_folders of the root node and check if
-    #       each folder name matches a folder name in the original ludo folder.  If
-    #       so, replace the ID with the ID of the matched folder name.  If not, then
-    #       create a new folder at this spot and then replace the ID as above.
-    #       Once all of that's been done, recurse through this dictionary again and
-    #       for each file, copy it using the new IDs that we replaced.
+
+
 
     @staticmethod
     @abstractmethod
-    def add_arguments(subparsers, parents: List = []) -> None:
+    def add_arguments(subparsers, parents: List = [], defaults=None) -> None:
         pass

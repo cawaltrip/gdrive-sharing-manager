@@ -1,5 +1,5 @@
 from gdrive_sharing_manager.argument_parser import ArgParser
-from typing import List
+from typing import List, Dict
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -9,6 +9,7 @@ import traceback
 import sys
 import logging
 from pathlib import Path
+
 
 class Create(ArgParser):
     """Class that creates a new empty folder structure to share."""
@@ -20,16 +21,35 @@ class Create(ArgParser):
         super(Create, Create.__init__())
 
     @staticmethod
-    def add_arguments(subparsers, parents: List = []) -> None:
+    def add_arguments(subparsers, parents: List = [], defaults: Dict = None) -> None:
         Create.parser = subparsers.add_parser(
             'create',
             help="Create empty folder structure to share with Ludo fan.",
             parents=parents)
+        source_group = Create.parser.add_mutually_exclusive_group(required=False)
+        source_group.add_argument('--source-root', help="Name of source folder (will use first one found).  "
+                                                        "This is where the repository of files is.")
+        source_group.add_argument('--source-root-id', help="Specific ID of the source folder.")
+        dest_group = Create.parser.add_mutually_exclusive_group(required=False)
+        dest_group.add_argument('--dest-root', help="Name of destination folder (will use first one found).  "
+                                                    "The new folder to share will be created here.")
+        dest_group.add_argument('--dest-root-id', help="Specific ID of the destination folder.")
+
+        # Make sure that create() is called when this function is used because
+        # there are no subcommands.
         Create.parser.set_defaults(func=Create.create)
 
+        if defaults is not None:
+            if Create.__name__ in defaults.keys():
+                Create.parser.set_defaults(**defaults[Create.__name__])
+
     def create(self):
+        if not self.user:
+            Create.logger.critical("Must specify user to create upload folder for!")
+            sys.exit(1)
+
         # Need to set token/credential
-        test_token_path = Path(self.creds).parent.joinpath("token.json")
+        test_token_path = self.creds.parent.joinpath("token.json")
         if test_token_path.exists():
             Create._token = test_token_path
 
@@ -64,36 +84,75 @@ class Create(ArgParser):
 
         try:
             Create.logger.debug(f"Connecting to API")
-            ArgParser._service = build('drive', 'v2', credentials=creds)
+            ArgParser._service = build('drive', 'v3', credentials=creds)
             Create.logger.info(f"Connected to API")
-            # Get the root folder information
-            # about = ArgParser._service.about().get().execute()
-            # root_folder = ArgParser._service.files().get(fileId=about['rootFolderId']).execute()
-            # root_children = Create._get_children_folders_by_folder_id(root_folder['id'])
 
-            Create.logger.debug(f"Retrieving main media folder")
-            ludo_folder = Create._get_folder_by_id(Create._MEDIA_BASE_FOLDER_ID)
-            Create.logger.debug(f"Retrieving new uploads folder")
-            ludo_uploads_folder = Create._get_folder_by_id(Create._UPLOADS_BASE_FOLDER_ID)
+            Create.logger.debug(f"Retrieving source (main media) folder")
+            if not self.source_root_id:
+                if not self.source_root:
+                    Create.logger.critical("Must specify a source folder or source folder ID!")
+                    sys.exit(1)
+                # Get the root folder information
+                Create.logger.debug(f"Getting folder by name: {self.source_root}")
+                source_folder = ArgParser._get_folder_by_name_under_parent(parent_id='root',
+                                                                           folder_name=self.source_root)
+            else:
+                Create.logger.debug(f"Getting folder by ID: {self.source_root_id}")
+                source_folder = ArgParser._get_folder_by_id(self.source_root_id)
 
+            Create.logger.info(f"Retrieved source folder.")
+            Create.logger.debug(f"Source folder ID: {source_folder['id']}")
+
+            Create.logger.debug("Retrieving destination (uploads) folder")
+            if not self.dest_root_id:
+                if not self.dest_root:
+                    Create.logger.critical("Must specify a destination folder or destination folder ID!")
+                    sys.exit(1)
+                # Get the root folder information
+                Create.logger.debug(f"Getting folder by name: {self.dest_root}")
+                dest_folder = ArgParser._get_folder_by_name_under_parent(parent_id='root',
+                                                                         folder_name=self.dest_root)
+            else:
+                Create.logger.debug(f"Getting folder by ID: {self.dest_root_id}")
+                source_folder = ArgParser._get_folder_by_id(self.dest_root_id)
+
+            Create.logger.info(f"Retrieved destination folder")
+            Create.logger.debug(f"Destination folder ID: {dest_folder['id']}")
+
+            Create.logger.debug("Retrieving folder structure")
             queue = [{
-                "id": ludo_folder['id'],
-                "title": ludo_folder['title']
+                "id": source_folder['id'],
+                "name": source_folder['name']
             }]
 
-            Create.logger.debug(f"Creating folder tree structure of main media folder")
-            ludo_folder_children = ArgParser._get_files_folders_dict(queue, include_files=False)
+            folder_structure = ArgParser._get_files_folders_dict(queue, include_files=False)
 
         except HttpError as e:
             Create.logger.critical(f"The following error occurred: {e}")
             traceback.print_exc()
             sys.exit(1)
+
         try:
-            Create.logger.info(f"Creating new folder for {self.new_folder_name}")
-            new_upload_folder_id = Create._create_folder(ludo_uploads_folder['id'], self.new_folder_name)
-            Create.logger.info(f"Creating folder tree structure under {self.new_folder_name}")
-            Create._duplicate_folder_structure(new_upload_folder_id, ludo_folder_children['child_folders'])
+            Create.logger.info(f"Creating new folder for {self.user}")
+            new_upload_folder_id = Create._create_folder(dest_folder['id'], self.user)
+            Create.logger.info(f"Creating folder structure under {self.user}")
+            if "child_folders" in folder_structure.keys():
+                Create._duplicate_folder_structure(new_upload_folder_id, folder_structure['child_folders'])
+            else:
+                Create.logger.debug("No folder structure to create.")
         except HttpError as e:
             Create.logger.critical(f"The following error occurred: {e}")
             traceback.print_exc()
             sys.exit(1)
+
+        Create.logger.info("Folder structure completed.")
+
+        # Time to share the folder.
+        Create.logger.debug(f"Sharing folder with: {self.user}")
+        try:
+            perm_id = ArgParser._share_folder_with_user(file_id=new_upload_folder_id, user=self.user)
+        except HttpError as e:
+            Create.logger.critical(f"The following error occurred: {e}")
+            traceback.print_exc()
+            sys.exit(1)
+        Create.logger.info(f"Shared folder with: {self.user}")
